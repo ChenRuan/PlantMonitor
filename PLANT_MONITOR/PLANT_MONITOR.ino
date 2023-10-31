@@ -4,17 +4,23 @@
 #include <PubSubClient.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <Wire.h>
 
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define ARDUINO_ADDR 9  // DEFINE ARDUINO I2C ADDRESS
 
 // Sensors - DHT22 and Nails
 uint8_t DHTPin = 12;        // on Pin 2 of the Huzzah
 uint8_t soilPin = 0;      // ADC or A0 pin on Huzzah
+uint8_t SDAPin = 4;        // on Pin 4 of the Huzzah
+uint8_t SCLPin = 5;      // on Pin 5 of the Huzzah
 float Temperature;
 float Humidity;
 int Moisture = 1; // initial value just in case web page is loaded before readMoisture called
 int sensorVCC = 13;
 int blueLED = 2;
+
+
 DHT dht(DHTPin, DHTTYPE);   // Initialize DHT sensor.
 
 
@@ -62,6 +68,9 @@ void setup() {
   pinMode(blueLED, OUTPUT); 
   digitalWrite(blueLED, HIGH);
 
+  Wire.pins(SDAPin, SCLPin);        // Define I2C pins.
+  Wire.begin();                     // Initialize I2C.
+
   // open serial connection for debug info
   Serial.begin(115200);
   delay(100);
@@ -89,6 +98,7 @@ void loop() {
   //if (secondChanged()) {
     readMoisture();
     sendMQTT();
+    I2C_transfer();
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
   }
   
@@ -222,6 +232,13 @@ void handle_OnConnect() {
 
 void handle_NotFound() {
   server.send(404, "text/plain", "Not found");
+}
+
+void I2C_transfer(){
+  Wire.beginTransmission(ARDUINO_ADDR);
+  Wire.write(Moisture);
+  Serial.println("Send I2C succeed");
+  Wire.endTransmission();
 }
 
 String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
