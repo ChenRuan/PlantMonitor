@@ -1,13 +1,3 @@
-/*
-    Get date and time - uses the ezTime library at https://github.com/ropg/ezTime -
-    and then show data from a DHT22 on a web page served by the Huzzah and
-    push data to an MQTT server - uses library from https://pubsubclient.knolleary.net
-
-    Duncan Wilson
-    CASA0014 - 2 - Plant Monitor Workshop
-    May 2020
-*/
-
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ezTime.h>
@@ -94,8 +84,9 @@ void setup() {
 void loop() {
   // handler for receiving requests to webserver
   server.handleClient();
-
-  if (minuteChanged()) {
+  // switch minuteChanged() and secondChanged() for tests
+  if(minuteChanged()){
+  //if (secondChanged()) {
     readMoisture();
     sendMQTT();
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
@@ -110,8 +101,8 @@ void readMoisture(){
   digitalWrite(sensorVCC, HIGH);
   digitalWrite(blueLED, LOW);
   delay(100);
-  // read the value from the sensor:
-  Moisture = analogRead(soilPin);         
+  // read the value from the sensor: change the range from (4,993) to (0,100)
+  Moisture = map(analogRead(soilPin), 4,1000, 0, 100);      
   digitalWrite(sensorVCC, LOW);  
   digitalWrite(blueLED, HIGH);
   delay(100);
@@ -166,7 +157,7 @@ void sendMQTT() {
   client.publish("student/CASA0014/plant/zczqrua/humidity", msg);
 
   //Moisture = analogRead(soilPin);   // moisture read by readMoisture function
-  snprintf (msg, 50, "%.0i", Moisture);
+  snprintf (msg, 50, "%.1i", Moisture);
   Serial.print("Publish message for m: ");
   Serial.println(msg);
   client.publish("student/CASA0014/plant/zczqrua/moisture", msg);
