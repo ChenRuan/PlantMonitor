@@ -15,7 +15,7 @@ void setup() {
 
 void loop() {
   Wire.onReceive(receiveEvent);
-  if( data_ESP <= 20){
+  if( data_ESP <= 10){
     digitalWrite(LED,HIGH);
   }else{
     digitalWrite(LED,LOW);
