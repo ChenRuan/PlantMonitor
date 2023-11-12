@@ -20,6 +20,14 @@ int Moisture = 1; // initial value just in case web page is loaded before readMo
 int sensorVCC = 13;
 int blueLED = 2;
 
+// Plant data
+int PlantTemp = 10;      // devide the plant temperature range
+int PlantMo1min = 5;     // define the suitable plant moisture range
+int PlantMo1max = 15;     
+int PlantMo2min = 10;     
+int PlantMo2max = 30;
+float HealthPoint = 100;
+float HPSituation = 0;     // 1 means dry, 2 means wet, 0 means great
 
 DHT dht(DHTPin, DHTTYPE);   // Initialize DHT sensor.
 
@@ -95,11 +103,12 @@ void loop() {
   server.handleClient();
   // switch minuteChanged() and secondChanged() for tests
   if(minuteChanged()){
-  //if (secondChanged()) {
     readMoisture();
-    sendMQTT();
+    HPCalculation();
     I2C_transfer();
+    sendMQTT();
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
+    //delay(5000);
   }
   
   client.loop();
@@ -172,6 +181,16 @@ void sendMQTT() {
   Serial.println(msg);
   client.publish("student/CASA0014/plant/zczqrua/moisture", msg);
 
+  snprintf (msg, 50, "%.0f", HealthPoint);
+  Serial.print("Publish message for hp: ");
+  Serial.println(msg);
+  client.publish("student/CASA0014/plant/zczqrua/HealthPoint", msg);
+
+  snprintf (msg, 50, "%.0f", HPSituation);
+  Serial.print("Publish message for Situation: ");
+  Serial.println(msg);
+  client.publish("student/CASA0014/plant/zczqrua/Situation", msg);
+
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -221,7 +240,7 @@ void startWebserver() {
   server.on("/", handle_OnConnect);
   server.onNotFound(handle_NotFound);
   server.begin();
-  Serial.println("HTTP server started");  
+  //Serial.println("HTTP server started");  
 }
 
 void handle_OnConnect() {
@@ -235,10 +254,69 @@ void handle_NotFound() {
 }
 
 void I2C_transfer(){
+  // Convert float numbers to byte arrays
+  byte bytes1[sizeof(float)];
+  byte bytes2[sizeof(float)];
+  byte bytes3[sizeof(float)];
+  byte bytes4[sizeof(float)];
+  memcpy(bytes1, &Temperature, sizeof(float));
+  memcpy(bytes2, &Humidity, sizeof(float));
+  memcpy(bytes3, &HealthPoint, sizeof(float));
+  memcpy(bytes4, &HPSituation, sizeof(float));
+
+  // Send byte arrays of the three parameters
   Wire.beginTransmission(ARDUINO_ADDR);
-  Wire.write(Moisture);
-  Serial.println("Send I2C succeed");
+  Wire.write(bytes1, sizeof(float));
+  Wire.write(bytes2, sizeof(float));
+  Wire.write(bytes3, sizeof(float));
+  Wire.write(bytes4, sizeof(float));
+  //Wire.write((byte*)&Moisture, sizeof(int));
+  //Wire.write((byte*)&HealthPoint, sizeof(int));
+  //Wire.write((byte*)&HPSituation, sizeof(int));
   Wire.endTransmission();
+
+  //Serial.println("send succeed"+HPSituation);
+}
+
+void HPCalculation(){
+  // Situation 1: Temp <= PlantTemp
+  // Out of range HP-1 else HP+1
+  if(Temperature <= PlantTemp){
+    if ( Moisture < PlantMo1min ){
+      if ( HealthPoint > 0 ) 
+        {HealthPoint -= 1;
+         HPSituation = 1;}
+    }
+    else if (Moisture > PlantMo1max ){
+      if ( HealthPoint > 0 ) 
+        {HealthPoint -= 1;
+         HPSituation = 2;}
+    }
+    else  {
+    if ( HealthPoint < 100 )
+        {HealthPoint += 1;
+        HPSituation = 0;}
+    }
+  } 
+  // Situation 2: Temp > PlantTemp
+  else{
+    if ( Moisture < PlantMo2min ){
+      if ( HealthPoint > 0 ) 
+        {HealthPoint -= 1;
+         HPSituation = 1;}
+    }
+    else if (Moisture > PlantMo2max ){
+      if ( HealthPoint > 0 ) 
+        {HealthPoint -= 1;
+         HPSituation = 2;}
+    }
+    else  {
+    if ( HealthPoint < 100 )
+      {HealthPoint += 1;
+      HPSituation = 0;}
+    }
+  }
+  //Serial.println("HealthPoint: "+ HealthPoint);
 }
 
 String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
