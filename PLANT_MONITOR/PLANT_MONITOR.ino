@@ -5,6 +5,10 @@
 #include <DHT.h>
 #include <DHT_U.h>
 #include <Wire.h>
+// Libraries for Telegram Bot
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
 
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 #define ARDUINO_ADDR 9  // DEFINE ARDUINO I2C ADDRESS
@@ -42,12 +46,16 @@ DHT dht(DHTPin, DHTTYPE);   // Initialize DHT sensor.
 #define SECRET_PASS "ssid password"
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
+#define SECRET_CHATID "botID";
+#define SECRET_BOTAPITOKEN "botAPItoken";
  */
 
 const char* ssid     = SECRET_SSID;
 const char* password = SECRET_PASS;
 const char* mqttuser = SECRET_MQTTUSER;
 const char* mqttpass = SECRET_MQTTPASS;
+const char* CHAT_ID = SECRET_CHATID;
+const char* BOTtoken = SECRET_BOTAPITOKEN;
 
 ESP8266WebServer server(80);
 const char* mqtt_server = "mqtt.cetools.org";
@@ -60,7 +68,14 @@ int value = 0;
 // Date and time
 Timezone GB;
 
+// Telegram Bot Part
+X509List cert(TELEGRAM_CERTIFICATE_ROOT);
+WiFiClientSecure BOTClient;
+UniversalTelegramBot bot(BOTtoken, BOTClient);
+int warningCount = 720;
 
+int botRequestDelay = 1000;
+unsigned long lastTimeBotRan;
 
 void setup() {
   // Set up LED to be controllable via broker
@@ -96,6 +111,9 @@ void setup() {
   client.setServer(mqtt_server, 1884);
   client.setCallback(callback);
 
+  // setup telegram bot
+  configTime(0, 0, "pool.ntp.org");      // get UTC time via NTP
+  BOTClient.setTrustAnchors(&cert); // Add root certificate for api.telegram.org
 }
 
 void loop() {
@@ -104,13 +122,26 @@ void loop() {
   // switch minuteChanged() and secondChanged() for tests
   if(minuteChanged()){
     readMoisture();
-    HPCalculation();
-    I2C_transfer();
+    HPCalculation();  
     sendMQTT();
+    I2C_transfer();
+    SendWarningMessage();
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
     //delay(5000);
   }
-  
+
+  // telegram bot part
+  if (millis() > lastTimeBotRan + botRequestDelay)  {
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+    while(numNewMessages) {
+      Serial.println("got response");
+      handleNewMessages(numNewMessages);
+      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    }
+    lastTimeBotRan = millis();
+  }
+
   client.loop();
 }
 
@@ -317,6 +348,59 @@ void HPCalculation(){
     }
   }
   //Serial.println("HealthPoint: "+ HealthPoint);
+}
+
+// happens when bot recieves new message
+void handleNewMessages(int numNewMessages) {
+  Serial.println("handleNewMessages");
+  Serial.println(String(numNewMessages));
+
+  for (int i=0; i<numNewMessages; i++) {
+    // Chat id of the requester
+    String chat_id = String(bot.messages[i].chat_id);
+    //Serial.println(chat_id);
+    if (chat_id != CHAT_ID){
+      bot.sendMessage(chat_id, "Unauthorized user", "");
+      continue;
+    }
+    
+    // Print the received message
+    String text = bot.messages[i].text;
+    Serial.println(text);
+
+    String from_name = bot.messages[i].from_name;
+
+    if (text == "/info") {
+      String BOTinfo = "Here is the information from the plant monitor.\nTemperature: " + String(Temperature) + "\nHumidity: " + String(Humidity) + "\n";
+      BOTinfo += "Moisture: " + String(Moisture) + "\nHealthPoint: " + String(HealthPoint) + "\n";
+      if(HealthPoint <= 10 and HPSituation == 1){
+        BOTinfo += "The soil is too dry and you need to water it!";
+      } else if (HealthPoint <= 10 and HPSituation == 2){
+        BOTinfo += "The soil is too wet and you need to drain it!";
+      } else{
+        BOTinfo += "Your plant is in good condition!";
+      }
+      bot.sendMessage(chat_id, BOTinfo, "");
+    }
+  }
+}
+
+void SendWarningMessage(){
+    if (HealthPoint <= 10 and warningCount >= 720){
+      String BOTinfo = "Here is the automatic warning from the plant monitor!\nTemperature: " + String(Temperature) + "\nHumidity: " + String(Humidity) + "\n";
+      BOTinfo += "Moisture: " + String(Moisture) + "\nHealthPoint: " + String(HealthPoint) + "\n";
+      if(HealthPoint <= 10 and HPSituation == 1){
+        BOTinfo += "The soil is too dry and you need to water it!";
+      } else if (HealthPoint <= 10 and HPSituation == 2){
+        BOTinfo += "The soil is too wet and you need to drain it!";
+      } else{
+        BOTinfo += "Your plant is in good condition!";
+      }
+      bot.sendMessage(CHAT_ID, BOTinfo, ""); 
+      warningCount = 0;
+    } else if(HealthPoint <= 10){
+      warningCount += 1;
+    }
 }
 
 String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
