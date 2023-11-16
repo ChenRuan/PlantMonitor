@@ -131,6 +131,7 @@ This is how the plant monitor looks under normal conditions.
 ![67e499a8510b8ae157ffa384f7c8ec4](https://github.com/ChenRuan/PlantMonitor/assets/145383140/4a0e2f43-56ed-44ad-af20-547182243896)
 
 This is the display on the LCD screen when testing lower plant vitality (dehydration), and it also will light up the LED in the picture above. 
+
 <img src="https://github.com/ChenRuan/PlantMonitor/assets/145383140/24a210fd-b5da-43be-838c-52d358fffad6" alt="Image" width="400"><img src="https://github.com/ChenRuan/PlantMonitor/assets/145383140/c224e415-f58c-4d10-83ad-22cd2596668b" alt="Image" width="400">
 
 Meanwhile, the Telegram bot will receive a message like this:
