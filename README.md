@@ -1,108 +1,146 @@
 # PlantMonitor
-## Overview
-This is the introduction of Plant Monitor. The entire device monitors plants using temperature and humidity sensors, as well as a soil moisture measurement module. It utilizes the Adafruit Feather HUZZAH ESP8266 to connect to Wi-Fi and transmit this data to MQTT for online monitoring. Additionally, it employs the I2C protocol to transmit the data to an Arduino UNO connected to an LCD for local visualization.
+## Introduction
+This project is a plant monitor designed to track the temperature, air humidity, and soil moisture of the plant's environment. The collected data is visualized locally using an LCD screen and simultaneously uploaded to MQTT and Telegram for online monitoring.
 
-![8ef7f2585fd94e64cce0efe214d0d3e](https://github.com/ChenRuan/PlantMonitor/assets/145383140/78a30cac-9617-4f2f-84f8-44f256cc08b3)
-
-## Devices
-+ Adafruit Feather HUZZAH ESP8266
+## Materials Needed
+### Hardware Components 
 + Arduino UNO
++ Adafruit Feather HUZZAH ESP8266
++ DHT22 
 + LCD1602
 + LED
-+ Sensors
-+ A plant
++ A stable dual-power supply device (such as a power bank) 
++ A plant 
++ Other accessories (jumper wires, resistors, data cables, etc.)
 
+### Software Components
++ MQTT explorer (or any other MQTT software)
++ Arduino IDE
++ A mobile phone with Telegram
 
-## Main Part (/PLANT_MONITOR)
-This part primarily involves obtaining data on air humidity, temperature, and soil moisture, and transmitting it to MQTT for online monitoring. This portion of the code runs on the Adafruit Feather HUZZAH ESP8266.
+## Installation Guide
+### ESP8266 Module
+#### Module Functionality:
++ Utilize the DHT22 sensor to obtain environmental temperature and air humidity.
++ Employ the resistive voltage divider principle to acquire soil moisture.
++ Connect to WiFi and upload data to MQTT.
 
-It is used for quicker test:
+#### Hardware Connection: 
+Connect the hardware according to the Circuit Diagram.
 
-```
-void loop() {
-  // handler for receiving requests to webserver
-  server.handleClient();
-  **// switch minuteChanged() and secondChanged() for tests
-  //if(minuteChanged()){
-  if (secondChanged()) {
-    readMoisture();
-    sendMQTT();
-    I2C_transfer();
-    Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
-  }
+![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/71c61212-bd40-4444-8324-28eb40539fbb)
+
+![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/65687e1c-69ed-4a18-9f9a-6106a1c7a7a5)
+
+#### Software Setup:
+
+1. Install the necessary ESP8266 environment, referring to this link: [Adafruit Feather HUZZAH ESP8266 Using Arduino IDE](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266/using-arduino-ide)
+
+      ``Don’t remember to setup libraries in your Arduino IDE before testing!``
+
+2.	Connect to WiFi, and upload sensor data to MQTT.
   
-  client.loop();
-}
+    ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/2edb24d4-8e19-4efc-8a18-e73af723ba31)
 
-```
-Add I2C module in ESP8266
+3. Read voltage data, convert it to soil moisture data, and upload it to MQTT.
 
-```
-#define ARDUINO_ADDR 9  // DEFINE ARDUINO I2C ADDRESS
-...
-uint8_t SDAPin = 4;        // on Pin 4 of the Huzzah
-uint8_t SCLPin = 5;      // on Pin 5 of the Huzzah
+    ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/e42f638f-7b85-4e49-8a96-1b7d84dbde7e)
 
-void setup(){
-...
-  Wire.pins(SDAPin, SCLPin);        // Define I2C pins.
-  Wire.begin();                     // Initialize I2C.
-...
-}
+  And this is the format of my MQTT, which includes the three parameters just uploaded.
+  
+   ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/7fc21a80-0ccb-4f7a-b733-82a6ee7e656c)
 
-void I2C_transfer(){
-  Wire.beginTransmission(ARDUINO_ADDR);
-  Wire.write(Moisture);
-  Serial.println("Send I2C succeed");
-  Wire.endTransmission();
-}
-```
+### Arduino UNO and LCD Module
+#### Module Functionality: 
++ Utilize the I2C protocol to transmit data from ESP8266 to Arduino UNO. 
++ Display the output data on the LCD screen.
 
-## Local Visualization Output Part (/PLANT_MONITOR_OUTPUT) 
-(Still Processing)
+#### Hardware Connection:
+1. Connect the ESP8266 and Arduino UNO. 
+  + The "SDA/4" pin of the ESP8266 is connected to the "A4" pin of the Arduino UNO.
+  + The "SCL/5" pin of the ESP8266 is connected to the "A5" pin of the Arduino UNO.
+    
+    ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/887229a4-933f-4e24-8720-f0b11e40a7d6)
 
-This part is primarily used for direct observation of the plant's growth conditions, including whether it needs watering or changing the place. Besides, I aim to create local visualization in a gamified manner, where you can not only view data like soil moisture but also see the plant's health points and experience points (based on the time it maintains a favorable growth environment).
+2. Connect the Arduino and the LCD screen following the diagram. Ref. [Liquid Crystal Displays (LCD) with Arduino](https://docs.arduino.cc/learn/electronics/lcd-displays)
 
-![41093bd8f1d95b26be7f4dd205b0d5d](https://github.com/ChenRuan/PlantMonitor/assets/145383140/adfeef56-6c1e-49ec-9b7b-219a01a4069f)
+  ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/6e60baf3-997c-4e95-90ff-66cfb00912d8)
 
-Currently, I have learned to transfer data from ESP8266 to Arduino using the I2C protocol. When the data received by Arduino indicates that the plant is in an unhealthy (lacking water) state, the red light will turn on.
-```
-#include <Wire.h>
+  ![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/550f6e18-265b-4aee-9d7a-00d44ec2626d)
 
-#define ARDUINO_ADDR 9  // DEFINE ARDUINO I2C ADDRESS
+#### Software Setup:
 
-int LED = 13; 
-int data_ESP; // define received data
+1. Write the transmission content on the ESP8266. The sample code is as follows:
+  ```
+    void I2C_transfer(){
+      // Convert float numbers to byte arrays
+      byte bytes1[sizeof(float)];
+      memcpy(bytes1, &Temperature, sizeof(float));
+    
+      // Send byte arrays of the three parameters
+      Wire.beginTransmission(ARDUINO_ADDR);
+      Wire.write(bytes1, sizeof(float));
+      Wire.endTransmission();
+    }
+  ```
 
-void setup() {
-  // put your setup code here, to run once:
-  pinMode(LED, OUTPUT);
-  Wire.begin(ARDUINO_ADDR);
-  Serial.begin(115200);
-  delay(100);
-}
+2. Receive the transmitted content on Arduino UNO. The sample code is as follows (must correspond one-to-one with the parameters in the transmission code):
+  ```
+    void receiveEvent(){
+      // Read byte arrays and convert back to float numbers
+      byte bytes1[sizeof(float)];
+      Wire.readBytes(bytes1, sizeof(float));
+      memcpy(&Temperature, bytes1, sizeof(float));
+    }
+  ```
 
-void loop() {
-  Wire.onReceive(receiveEvent);
-  if( data_ESP <= 10){
-    digitalWrite(LED,HIGH);
-  }else{
-    digitalWrite(LED,LOW);
-  }
-}
+3. Write the code for the LED module on Arduino UNO to display the desired content.
 
-//this function is used to receive data and console
-void receiveEvent(){
-  data_ESP = Wire.read();
-  Serial.println(data_ESP);
-}
-```
-Now I am working on writing code to connect Arduino and an LCD to achieve a more intuitive output. 
-## Why I chose this plant?
-![c272806d007ca9de2bf6262eda81396](https://github.com/ChenRuan/PlantMonitor/assets/145383140/cf219a51-8e7d-4d7a-bc76-65307c4ad61d)
-I chose chamaedorea elegans not only because it's cheap but also because its varying water requirements at different temperatures make the entire experiment more challenging.
-## Where to find my plant data
-You can log in to mqtt.cetools.org and find my plant data in this directory: __student/CASA0014/plant/zczqrua/__
+### Telegram Bot Module (On ESP8266)
+#### Module Functionality 
++ Utilize the Telegram Bot to read data from ESP8266
++ Send data to users via the Telegram Bot
+
+#### Software Setup:
+
+1. Find BotFather on Telegram, create a bot, and obtain the BOT token. 
+2. Use the IDbot on Telegram to retrieve your own ID.
+3. Scheduled retrieval of new messages, assessing and returning relevant parameters for the messages. 
+4. Under specific circumstances, directly send warning messages to users.
+   
+Ref. [Telegram: Request ESP32/ESP8266 Sensor Readings (Arduino IDE)](https://randomnerdtutorials.com/telegram-request-esp32-esp8266-nodemcu-sensor-readings/)
+
+## Instructions for Use
+
+After everything is prepared, connect the iron nails to the circuit and insert them into the soil. Ensure that the position of each insertion is fixed so that the soil moisture reading is not affected by changes in the position of the iron nails.
+
+Power both Arduino UNO and ESP8266. The operation of the I2C protocol requires ensuring that the supply voltage for both devices is consistent, so it is best to use the power interfaces of the same device.
+
+Observe whether the output meets the expectations:
++ Observe whether the LCD screen outputs as expected. 
++ Check if the MQTT server has received the uploaded data. 
++ Debug the Telegram robot and observe if data can be obtained through input commands and if alerts are received.
+
+After confirming everything is in order, wrap all your tools and equipment with a layer of plastic film. This step is to prevent any accidental damage to your devices that may occur during watering.
+
+## Application Demonstration
+This is how the plant monitor looks under normal conditions. 
+
+![95b48f235349a4ae9fe14bbb9914df4](https://github.com/ChenRuan/PlantMonitor/assets/145383140/64cf952b-1a1b-4d95-8803-7f78e900a327)
+
+![67e499a8510b8ae157ffa384f7c8ec4](https://github.com/ChenRuan/PlantMonitor/assets/145383140/4a0e2f43-56ed-44ad-af20-547182243896)
+
+This is the display on the LCD screen when testing lower plant vitality (dehydration), and it also will light up the LED in the picture above. 
+<img src="https://github.com/ChenRuan/PlantMonitor/assets/145383140/24a210fd-b5da-43be-838c-52d358fffad6" alt="Image" width="400"><img src="https://github.com/ChenRuan/PlantMonitor/assets/145383140/c224e415-f58c-4d10-83ad-22cd2596668b" alt="Image" width="400">
+
+Meanwhile, the Telegram bot will receive a message like this:
+
+![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/2ab6640c-e3f8-4246-9154-8885762d6e53)
+
+We can also obtain information through commands:
+
+![image](https://github.com/ChenRuan/PlantMonitor/assets/145383140/7f4772ad-b84b-4f63-bb59-35da384c1a6a)
+
 
 
 
